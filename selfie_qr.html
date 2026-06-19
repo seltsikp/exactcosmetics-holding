@@ -1,0 +1,678 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EXACT Cosmetics — Selfie Capture</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+      *{ box-sizing:border-box; }
+      body{ margin:0; font-family: Montserrat, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f4f4f6; color:#0b0b0c; }
+      .wrap{ max-width:440px; margin:0 auto; padding:16px; }
+
+      /* Header */
+      .brand{ text-align:center; padding:18px 0 12px; }
+      .brand-title{ font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#b89a5b; margin-top:4px; }
+
+      .card{ background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:20px; box-shadow:0 8px 32px rgba(0,0,0,.09); overflow:hidden; }
+      .head{ padding:14px 18px; border-bottom:1px solid rgba(0,0,0,.07); display:flex; align-items:center; gap:10px; }
+      .head-icon{ width:34px; height:34px; background:#fdf8f0; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .head-title{ font-size:16px; font-weight:800; }
+      .body{ padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+
+      /* Guidance box */
+      .guidance{ background:#fdf8f0; border:1px solid rgba(184,154,91,.25); border-radius:10px; padding:10px 12px; display:flex; gap:8px; align-items:flex-start; }
+      .guidance-text{ font-size:12px; font-weight:500; color:#92712a; line-height:1.5; }
+
+      /* Preview frame */
+      .frame{
+        width:100%; max-width:300px; height:400px; margin:0 auto;
+        border-radius:16px; overflow:hidden; position:relative; background:#111;
+        --oval-cx:150px; --oval-cy:208px; --oval-rx:105px; --oval-ry:172px;
+      }
+      video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+      #v_blur{ z-index:1; filter: blur(8px) brightness(0.98); transform: scaleX(-1) scale(1.05); }
+      #v_sharp{ z-index:2; transform: scaleX(-1);
+        clip-path: ellipse(var(--oval-rx) var(--oval-ry) at var(--oval-cx) var(--oval-cy));
+        -webkit-clip-path: ellipse(var(--oval-rx) var(--oval-ry) at var(--oval-cx) var(--oval-cy));
+      }
+      canvas{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:3; }
+
+      .tip{
+        position:absolute; left:12px; right:12px; bottom:12px;
+        background:rgba(0,0,0,.6); color:#fff; font-weight:700; font-size:14px;
+        padding:10px 12px; border-radius:12px; text-align:center;
+        min-height:38px; display:flex; align-items:center; justify-content:center;
+        z-index:5;
+      }
+
+      /* Buttons */
+      .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+      button{
+        border:1px solid rgba(0,0,0,.16); background:#fff; border-radius:12px;
+        padding:12px 18px; font-weight:700; font-size:14px; cursor:pointer;
+        font-family:Montserrat,system-ui,sans-serif;
+      }
+      button:hover{ background:rgba(0,0,0,.04); }
+      button.primary{ background:#b89a5b; color:#fff; border-color:#b89a5b; }
+      button.primary:hover{ background:#a08848; }
+      button.success{ background:#16a34a; color:#fff; border-color:#16a34a; }
+      button:disabled{ opacity:.45; cursor:not-allowed; }
+
+      .cam-label{ font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#6b7280; margin-bottom:4px; }
+
+      .status{ color:rgba(0,0,0,.55); font-size:12px; min-height:16px; text-align:center; font-weight:500; }
+
+      .previewImg{ width:100%; max-width:300px; height:400px; object-fit:cover; border-radius:16px; display:block; margin:0 auto; }
+
+      /* Done state */
+      .doneWrap{ text-align:center; padding:20px 6px; }
+      .doneTick{
+        width:64px; height:64px; background:#f0fdf4; border:2px solid #86efac;
+        border-radius:999px; display:flex; align-items:center; justify-content:center;
+        margin:0 auto 12px;
+      }
+      .doneTitle{ font-weight:800; font-size:18px; margin-bottom:6px; }
+      .doneSub{ color:rgba(0,0,0,.55); font-size:13px; margin-top:6px; line-height:1.5; }
+
+      .sess{ color:rgba(0,0,0,.3); font-size:10px; text-align:center; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <div class="card">
+        <div class="head">
+          <div class="head-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b89a5b" stroke-width="2"><path d="M2 7V5a2 2 0 0 1 2-2h2M2 17v2a2 2 0 0 0 2 2h2M22 7V5a2 2 0 0 0-2-2h-2M22 17v2a2 2 0 0 1-2 2h-2"/><ellipse cx="12" cy="12" rx="4" ry="5.5"/></svg>
+          </div>
+          <div class="head-title" id="headTitle" style="flex:1;">Capture skin scan</div>
+          <img src="./assets/logo.png" alt="EXACT" style="height:32px;width:auto;opacity:.85;">
+        </div>
+        <div class="body">
+
+          <div class="guidance">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b89a5b" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <div class="guidance-text" id="guidanceText">Bright, even lighting · Face forward · Neutral expression · Eyes open · Mouth closed · Forehead visible<br>Hair back if possible · Remove glasses</div>
+          </div>
+
+          <div class="frame" id="frame">
+            <video id="v_blur" playsinline autoplay muted></video>
+            <video id="v_sharp" playsinline autoplay muted></video>
+            <canvas id="ov"></canvas>
+            <div class="tip" id="tip">Tap “Start camera” to allow camera access.</div>
+          </div>
+
+          <div>
+            <div class="cam-label" id="camLabel">Camera</div>
+            <div class="btnRow" id="btnRowLive">
+              <button id="start" class="primary" style="flex:1;">Start camera</button>
+              <button id="take" class="primary" disabled style="display:none;">Take photo</button>
+              <button id="retry" style="padding:12px 14px;">Retry</button>
+            </div>
+          </div>
+
+          <div class="btnRow" id="btnRowReview" style="display:none;">
+            <button id="retake" style="flex:1;">Retake</button>
+            <button id="send" class="success" style="flex:1;">Send photo</button>
+          </div>
+
+          <div id="status" class="status"></div>
+
+          <div id="done" class="doneWrap" style="display:none;">
+            <div class="doneTick">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div class="doneTitle">Photo sent!</div>
+            <div class="doneSub">Return to the desktop portal — your scan is on its way.</div>
+            <div style="margin-top:16px;"><button id="closeDone" class="success" style="padding:12px 32px;">Close</button></div>
+          </div>
+
+          <div class="sess" id="sess"></div>
+
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      const qs = new URLSearchParams(location.search);
+      const sid = qs.get("sid") || "";
+      const oc  = qs.get("oc")  || "";
+      const su  = qs.get("su")  || "";
+      const ak  = qs.get("ak")  || "";
+
+      const LANG = (qs.get("lang") || localStorage.getItem("exact_lang") || "en").toLowerCase() === "el" ? "el" : "en";
+      localStorage.setItem("exact_lang", LANG);
+      document.documentElement.setAttribute("lang", LANG);
+      const I18N = {
+        en: { capture_title:"Capture skin scan", guidance:"Bright, even lighting · Face forward · Neutral expression · Eyes open · Mouth closed · Forehead visible<br>Hair back if possible · Remove glasses", tap_start:"Tap “Start camera” to allow camera access.", camera:"Camera", start_camera:"Start camera", take_photo:"Take photo", retry:"Retry", retake:"Retake", send_photo:"Send photo", photo_sent:"Photo sent!", return_desktop:"Return to the desktop portal — your scan is on its way.", close:"Close", missing_params:"Missing QR parameters. Please rescan from the desktop portal.", center_face:"Center your face in the oval", move_left:"Move slightly left", move_right:"Move slightly right", move_down:"Move slightly down", move_up:"Move slightly up", move_closer:"Move closer", move_back:"Move slightly back", improve_lighting:"Improve lighting", hold_still:"Hold still", perfect_hold:"Perfect — hold still", requesting:"Requesting camera permission…", permission_blocked:"Camera permission blocked. Please allow camera access in browser settings.", review_photo:"Review photo…", sending:"Sending…", sent:"Sent ✓", send_failed:"Send failed. Please retry.", capturing:"Capturing…", connecting:"Connecting…", connection_failed:"Connection failed. Please rescan the QR from the desktop portal." },
+        el: { capture_title:"Λήψη σάρωσης δέρματος", guidance:"Έντονος, ομοιόμορφος φωτισμός · Κοιτάξτε μπροστά · Ουδέτερη έκφραση · Μάτια ανοιχτά · Στόμα κλειστό · Ορατό μέτωπο<br>Μαλλιά πίσω αν είναι δυνατό · Αφαιρέστε τα γυαλιά", tap_start:"Πατήστε «Εκκίνηση κάμερας» για να επιτρέψετε την πρόσβαση στην κάμερα.", camera:"Κάμερα", start_camera:"Εκκίνηση κάμερας", take_photo:"Λήψη φωτογραφίας", retry:"Δοκιμή ξανά", retake:"Νέα λήψη", send_photo:"Αποστολή φωτογραφίας", photo_sent:"Η φωτογραφία στάλθηκε!", return_desktop:"Επιστρέψτε στην πύλη στον υπολογιστή — η σάρωση αποστέλλεται.", close:"Κλείσιμο", missing_params:"Λείπουν παράμετροι QR. Σαρώστε ξανά από την πύλη στον υπολογιστή.", center_face:"Κεντράρετε το πρόσωπό σας στο οβάλ", move_left:"Μετακινηθείτε λίγο αριστερά", move_right:"Μετακινηθείτε λίγο δεξιά", move_down:"Μετακινηθείτε λίγο κάτω", move_up:"Μετακινηθείτε λίγο πάνω", move_closer:"Πλησιάστε", move_back:"Απομακρυνθείτε λίγο", improve_lighting:"Βελτιώστε τον φωτισμό", hold_still:"Μείνετε ακίνητοι", perfect_hold:"Τέλεια — μείνετε ακίνητοι", requesting:"Ζητείται άδεια κάμερας…", permission_blocked:"Η άδεια κάμερας έχει αποκλειστεί. Επιτρέψτε την πρόσβαση στην κάμερα από τις ρυθμίσεις του browser.", review_photo:"Έλεγχος φωτογραφίας…", sending:"Αποστολή…", sent:"Στάλθηκε ✓", send_failed:"Η αποστολή απέτυχε. Δοκιμάστε ξανά.", capturing:"Γίνεται λήψη…", connecting:"Σύνδεση…", connection_failed:"Η σύνδεση απέτυχε. Σαρώστε ξανά το QR από την πύλη στον υπολογιστή." }
+      };
+      function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.en[k] || k; }
+
+      
+      function attemptClose() {
+        // Notify opener/parent (desktop) so it can update UI even if this tab can't be closed
+        try { if (window.opener) window.opener.postMessage({ type: "EXACT_SELFIE_SENT", sid, oc }, "*"); } catch(_e) {}
+        try { window.parent && window.parent !== window && window.parent.postMessage({ type: "EXACT_SELFIE_SENT", sid, oc }, "*"); } catch(_e) {}
+
+        // Best-effort close sequence (works only if window was opened by script)
+        const fns = [
+          () => { try { window.close(); } catch(_e) {} },
+          () => { try { self.close(); } catch(_e) {} },
+          () => { try { window.open("", "_self"); window.close(); } catch(_e) {} },
+          () => { try { window.top && window.top.close && window.top.close(); } catch(_e) {} },
+          () => { try { history.back(); } catch(_e) {} },
+          () => { try { window.location.replace("about:blank"); } catch(_e) {} },
+        ];
+        let i = 0;
+        const tick = () => {
+          if (i >= fns.length) return;
+          fns[i++]();
+          setTimeout(tick, 220);
+        };
+        tick();
+      }
+const frame = document.getElementById("frame");
+      const vBlur = document.getElementById("v_blur");
+      const vSharp = document.getElementById("v_sharp");
+      const ov = document.getElementById("ov");
+      const tip = document.getElementById("tip");
+      const statusEl = document.getElementById("status");
+      const sess = document.getElementById("sess");
+
+      const startBtn = document.getElementById("start");
+      const takeBtn = document.getElementById("take");
+      const retryBtn = document.getElementById("retry");
+
+      const btnRowLive = document.getElementById("btnRowLive");
+      const btnRowReview = document.getElementById("btnRowReview");
+      const sendBtn = document.getElementById("send");
+      const retakeBtn = document.getElementById("retake");
+      const done = document.getElementById("done");
+      const closeDoneBtn = document.getElementById("closeDone");
+
+      sess.textContent = `Session: ${sid} | Order: ${oc || "(unknown)"}`;
+
+
+      document.getElementById("headTitle").textContent = t("capture_title");
+      document.getElementById("guidanceText").innerHTML = t("guidance");
+      document.getElementById("camLabel").textContent = t("camera");
+      startBtn.textContent = t("start_camera");
+      takeBtn.textContent = t("take_photo");
+      retryBtn.textContent = t("retry");
+      retakeBtn.textContent = t("retake");
+      sendBtn.textContent = t("send_photo");
+      document.querySelector(".doneTitle").textContent = t("photo_sent");
+      document.querySelector(".doneSub").textContent = t("return_desktop");
+      closeDoneBtn.textContent = t("close");
+      tip.textContent = t("tap_start");
+
+      if (closeDoneBtn) closeDoneBtn.onclick = () => attemptClose();
+
+      if (!sid || !su || !ak) {
+        statusEl.textContent = t("missing_params");
+        startBtn.disabled = true; takeBtn.disabled = true; retryBtn.disabled = true;
+      }
+
+      const sb = (sid && su && ak) ? window.supabase.createClient(su, ak) : null;
+      let ch = null;
+      let stream = null;
+      let landmarker = null;
+      let raf = null;
+
+      let allowCapture = false;
+      let lastCenter = null;
+      let lastCenterAt = 0;
+      let lastMsg = "";
+      let autoSnapTimer = null;
+      let hasCaptured = false;
+
+      const AUTO_SNAP_MS = 1500;
+      const DARK_LUMA_THRESHOLD = 85;
+
+      function setTip(msg){ tip.textContent = msg; }
+
+      function armAutoSnap() {
+        if (hasCaptured) return;
+        if (autoSnapTimer) return;
+        autoSnapTimer = setTimeout(async () => {
+          autoSnapTimer = null;
+          if (hasCaptured) return;
+          if (!allowCapture) return;
+          await captureNow(true);
+        }, AUTO_SNAP_MS);
+      }
+      function disarmAutoSnap() {
+        if (autoSnapTimer) { clearTimeout(autoSnapTimer); autoSnapTimer = null; }
+      }
+      function nowMs() { return (performance && performance.now) ? performance.now() : Date.now(); }
+
+      function ellipseContains(cx, cy, rx, ry, x, y) {
+        const dx = (x - cx) / rx;
+        const dy = (y - cy) / ry;
+        return (dx*dx + dy*dy) <= 1.0;
+      }
+
+      function bboxFromLandmarks(landmarks, w, h) {
+        let minX = 1, minY = 1, maxX = 0, maxY = 0;
+        for (const p of landmarks) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        }
+        const x = minX * w, y = minY * h;
+        const bw = (maxX - minX) * w, bh = (maxY - minY) * h;
+        return { x, y, w: bw, h: bh, cx: x + bw/2, cy: y + bh/2, minX: x, minY: y, maxX: x+bw, maxY: y+bh };
+      }
+
+      function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+      function computeLumaMean(img) {
+        const d = img.data;
+        let sum = 0;
+        for (let i = 0; i < d.length; i += 16) {
+          sum += (0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2]);
+        }
+        const n = Math.max(1, Math.floor(d.length / 16));
+        return sum / n;
+      }
+
+      function computeLumaMeanInBox(img, box) {
+        const d = img.data;
+        const W = img.width, H = img.height;
+        const x0 = clamp(Math.floor(box.x), 0, W-1);
+        const y0 = clamp(Math.floor(box.y), 0, H-1);
+        const x1 = clamp(Math.ceil(box.x + box.w), 0, W);
+        const y1 = clamp(Math.ceil(box.y + box.h), 0, H);
+
+        let sum = 0, n = 0;
+        const step = 4;
+        for (let y = y0; y < y1; y += step) {
+          for (let x = x0; x < x1; x += step) {
+            const i = (y * W + x) * 4;
+            sum += (0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2]);
+            n++;
+          }
+        }
+        return sum / Math.max(1, n);
+      }
+
+      function getOval() {
+        const w = ov.width || 300;
+        const h = ov.height || 400;
+        const cx = w/2;
+        const cy = h*0.52;
+        const rx = (w*0.70)/2;
+        const ry = (h*0.86)/2;
+        return { cx, cy, rx, ry };
+      }
+
+      function chooseMessage(s) {
+        if (!s.hasFace) return t("center_face");
+        if (s.offX) return s.offX < 0 ? t("move_left") : t("move_right");
+        if (s.offY) return s.offY < 0 ? t("move_down") : t("move_up");
+        if (s.tooSmall) return t("move_closer");
+        if (s.tooLarge) return t("move_back");
+        if (s.dark) return t("improve_lighting");
+        if (s.moving) return t("hold_still");
+        return t("perfect_hold");
+      }
+
+      function syncOvalCssVars() {
+        const { cx, cy, rx, ry } = getOval();
+        frame.style.setProperty("--oval-cx", cx + "px");
+        frame.style.setProperty("--oval-cy", cy + "px");
+        frame.style.setProperty("--oval-rx", rx + "px");
+        frame.style.setProperty("--oval-ry", ry + "px");
+      }
+
+      function drawOverlay(ok, scanActive=false) {
+        const ctx = ov.getContext("2d");
+        const w = ov.width, h = ov.height;
+        ctx.clearRect(0,0,w,h);
+        const { cx, cy, rx, ry } = getOval();
+        syncOvalCssVars();
+
+        // darken outside oval (subtle)
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(0,0,w,h);
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+
+        // double oval frame
+        ctx.save();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = ok ? "rgba(0,180,90,0.95)" : "rgba(255,255,255,0.80)";
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2); ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx*0.82, ry*0.82, 0, 0, Math.PI*2); ctx.stroke();
+        ctx.restore();
+
+        // scan line inside oval (desktop-style reliability)
+        if (scanActive) {
+          const t = nowMs() % 1600;
+          const y = (cy - ry) + (t / 1600) * (2 * ry);
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2);
+          ctx.clip();
+          ctx.strokeStyle = "rgba(0,0,0,0.72)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      async function initLandmarker() {
+        if (landmarker) return landmarker;
+        const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+        const resolver = await vision.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+        landmarker = await vision.FaceLandmarker.createFromOptions(resolver, {
+          baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
+          numFaces: 1,
+          runningMode: "VIDEO",
+        });
+        return landmarker;
+      }
+
+      async function subscribeRealtime() {
+        if (!sb) return;
+        ch = sb.channel("selfie_" + sid, { config: { broadcast: { self: true } } });
+        await new Promise((resolve, reject) => {
+          let settled = false;
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error("Realtime subscribe timeout"));
+          }, 12000);
+          ch.subscribe((st) => {
+            if (st === "SUBSCRIBED") {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              resolve();
+            }
+            if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              reject(new Error("Realtime subscribe failed: " + st));
+            }
+          });
+        });
+      }
+
+      function stopCam() {
+        try { if (stream) stream.getTracks().forEach(t => t.stop()); } catch(_e) {}
+        stream = null;
+        vBlur.srcObject = null;
+        vSharp.srcObject = null;
+      }
+
+      async function startCam() {
+        takeBtn.disabled = true;
+        statusEl.textContent = "";
+        setTip(t("requesting"));
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "user",
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 }
+            },
+            audio: false
+          });
+          vBlur.srcObject = stream;
+          vSharp.srcObject = stream;
+          await Promise.all([vBlur.play(), vSharp.play()]);
+
+          ov.width = frame.clientWidth;
+          ov.height = frame.clientHeight;
+          syncOvalCssVars();
+
+          await initLandmarker();
+          runLoop();
+          setTip(t("center_face"));
+        } catch (e) {
+          console.warn(e);
+          statusEl.textContent = t("permission_blocked");
+          setTip(t("tap_start"));
+          startBtn.disabled = false;
+        }
+      }
+
+      function runLoop() {
+        const tiny = document.createElement("canvas");
+        const tctx = tiny.getContext("2d", { willReadFrequently: true });
+
+        const tick = () => {
+          raf = requestAnimationFrame(tick);
+          if (!landmarker || !vSharp.videoWidth) return;
+
+          const w = ov.width, h = ov.height;
+          let hasFace=false, tooSmall=false, tooLarge=false, offX=0, offY=0, dark=false, moving=false;
+
+          // lighting sample
+          let img = null;
+          try {
+            tiny.width = 160;
+            tiny.height = Math.round(160*(h/w));
+            tctx.drawImage(vSharp, 0, 0, tiny.width, tiny.height);
+            img = tctx.getImageData(0,0,tiny.width,tiny.height);
+            dark = computeLumaMean(img) < DARK_LUMA_THRESHOLD;
+          } catch(_e) { img = null; }
+
+          // face detect
+          try {
+            const res = landmarker.detectForVideo(vSharp, nowMs());
+            if (res.faceLandmarks && res.faceLandmarks.length) {
+              hasFace = true;
+
+              if (img) {
+                try {
+                  const fbTiny = bboxFromLandmarks(res.faceLandmarks[0], tiny.width, tiny.height);
+                  const meanFace = computeLumaMeanInBox(img, fbTiny);
+                  const meanAll = computeLumaMean(img);
+                  const mean = (isFinite(meanFace) && meanFace > 0) ? meanFace : meanAll;
+                  dark = mean < DARK_LUMA_THRESHOLD;
+                } catch(_e) {}
+              }
+
+              const fb = bboxFromLandmarks(res.faceLandmarks[0], w, h);
+              const paddedFaceW = fb.w * 1.25;
+              const ratio = paddedFaceW / w;
+              tooSmall = ratio < 0.60;
+              tooLarge = ratio > 0.80;
+
+              const {cx,cy,rx,ry} = getOval();
+              const dx = (fb.cx - cx)/rx;
+              const dy = (fb.cy - cy)/ry;
+              offX = Math.abs(dx) > 0.18 ? dx : 0;
+              offY = Math.abs(dy) > 0.18 ? dy : 0;
+
+              const t = nowMs();
+              if (lastCenter && (t-lastCenterAt) < 650) {
+                const dd = Math.hypot(fb.cx-lastCenter.x, fb.cy-lastCenter.y);
+                moving = dd > 6;
+              }
+              lastCenter={x:fb.cx,y:fb.cy}; lastCenterAt=t;
+
+              const midOk =
+                ellipseContains(cx,cy,rx,ry,fb.minX,fb.cy) &&
+                ellipseContains(cx,cy,rx,ry,fb.maxX,fb.cy) &&
+                ellipseContains(cx,cy,rx,ry,fb.cx,fb.minY) &&
+                ellipseContains(cx,cy,rx,ry,fb.cx,fb.maxY);
+
+              allowCapture = hasFace && !tooSmall && !tooLarge && !offX && !offY && !dark && !moving && midOk;
+            } else {
+              allowCapture = false;
+            }
+          } catch(_e) {
+            allowCapture = false;
+          }
+
+          const msg = chooseMessage({hasFace,tooSmall,tooLarge,offX,offY,dark,moving});
+          if (msg !== lastMsg) { setTip(msg); lastMsg = msg; }
+          takeBtn.disabled = !allowCapture;
+          drawOverlay(allowCapture, allowCapture);
+          if (allowCapture) { armAutoSnap(); } else { disarmAutoSnap(); }
+        };
+
+        tick();
+      }
+
+      async function captureBlob() {
+        const c = document.createElement("canvas");
+        const srcW = vSharp.videoWidth || 1280;
+        const srcH = vSharp.videoHeight || 720;
+
+        // PerfectCorp can reject images where the overall frame or detected face region is too small.
+        // The QR/mobile capture path may negotiate only 720x1280 on some phones, so export a larger
+        // JPEG while preserving the camera aspect ratio.
+        const TARGET_LONG_SIDE = 1600;
+        const longSide = Math.max(srcW, srcH);
+        const scale = longSide < TARGET_LONG_SIDE ? (TARGET_LONG_SIDE / longSide) : 1;
+
+        const outW = Math.round(srcW * scale);
+        const outH = Math.round(srcH * scale);
+
+        c.width = outW;
+        c.height = outH;
+
+        const ctx = c.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
+        // Mirror to match preview.
+        ctx.translate(outW, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(vSharp, 0, 0, srcW, srcH, 0, 0, outW, outH);
+
+        const blob = await new Promise((resolve) => c.toBlob(resolve, "image/jpeg", 0.90));
+        const dataUrl = c.toDataURL("image/jpeg", 0.84);
+        return { blob, dataUrl };
+      }
+
+      async function sendBlob(blob) {
+        if (!ch) throw new Error("Realtime channel not ready");
+        const ab = await blob.arrayBuffer();
+        const bytes = new Uint8Array(ab);
+        let bin = "";
+        const chunkSize = 0x8000;
+        for (let i=0;i<bytes.length;i+=chunkSize) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
+        }
+        const b64 = btoa(bin);
+
+        const maxChunk = 14000;
+        const total = Math.ceil(b64.length / maxChunk);
+        for (let i=0;i<total;i++) {
+          const part = b64.slice(i*maxChunk, (i+1)*maxChunk);
+
+          // Realtime broadcast can occasionally drop a chunk on mobile networks.
+          // Send each chunk twice; the desktop receiver overwrites the same index,
+          // so duplicates are harmless, but a missed first send is recovered.
+          await ch.send({ type:"broadcast", event:"selfie_chunk", payload: { idx:i, total, data: part } });
+          await new Promise(r => setTimeout(r, 35));
+          await ch.send({ type:"broadcast", event:"selfie_chunk", payload: { idx:i, total, data: part } });
+
+          // Slower pacing improves reliability on phones and avoids stalling at N-1 chunks.
+          await new Promise(r => setTimeout(r, 85));
+        }
+      }
+
+      function showReview(dataUrl, blob) {
+        // replace the live frame with captured image
+        const img = document.createElement("img");
+        img.className = "previewImg";
+        img.src = dataUrl;
+
+        frame.replaceWith(img);
+
+        btnRowLive.style.display = "none";
+        btnRowReview.style.display = "flex";
+        statusEl.textContent = "";
+        setTip(t("review_photo"));
+
+        sendBtn.onclick = async () => {
+          sendBtn.disabled = true;
+          retakeBtn.disabled = true;
+          statusEl.textContent = t("sending");
+          try {
+            await sendBlob(blob);
+            statusEl.textContent = t("sent");
+            // Show a friendly "sent" state for a moment then close
+            done.style.display = "block";
+            setTip(t("sent"));
+            const tryClose = () => attemptClose();
+            setTimeout(tryClose, 250);
+            setTimeout(tryClose, 900);
+            setTimeout(() => { try { history.back(); } catch(_e) {} }, 1200);
+            setTimeout(() => { try { window.location.replace('about:blank'); } catch(_e) {} }, 1800);
+          } catch (e) {
+            console.warn(e);
+            statusEl.textContent = t("send_failed");
+            sendBtn.disabled = false;
+            retakeBtn.disabled = false;
+          }
+        };
+
+        retakeBtn.onclick = () => location.reload();
+      }
+
+      async function captureNow(fromAuto) {
+        if (hasCaptured) return;
+        if (!allowCapture) return;
+        hasCaptured = true;
+        disarmAutoSnap();
+
+        takeBtn.disabled = true;
+        setTip(fromAuto ? t("capturing") : t("review_photo"));
+
+        const { blob, dataUrl } = await captureBlob();
+        stopCam();
+        if (raf) cancelAnimationFrame(raf);
+
+        showReview(dataUrl, blob);
+      }
+
+      startBtn.addEventListener("click", async () => {
+        try {
+          startBtn.disabled = true;
+          statusEl.textContent = t("connecting");
+          await subscribeRealtime();
+          statusEl.textContent = "";
+          await startCam();
+        } catch (e) {
+          console.warn(e);
+          statusEl.textContent = t("connection_failed");
+          startBtn.disabled = false;
+        }
+      });
+
+      retryBtn.addEventListener("click", () => {
+        stopCam();
+        setTip(t("tap_start"));
+        startBtn.disabled = false;
+        takeBtn.disabled = true;
+      });
+
+      takeBtn.addEventListener("click", async () => { await captureNow(false); });
+
+      window.addEventListener("pagehide", () => stopCam());
+      document.addEventListener("visibilitychange", () => { if (document.hidden) stopCam(); });
+
+    </script>
+  </body>
+</html>
