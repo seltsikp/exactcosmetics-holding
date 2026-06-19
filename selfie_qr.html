@@ -152,10 +152,43 @@
       function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.en[k] || k; }
 
       
+      function notifyDesktopScroll() {
+        const payload = { type: "EXACT_SCROLL_TO_PROGRESS", sid, oc };
+
+        // Send several times because mobile browsers may still be returning focus
+        // from the camera page when the first postMessage fires.
+        const send = () => {
+          try { if (window.opener) window.opener.postMessage(payload, "*"); } catch(_e) {}
+          try { if (window.parent && window.parent !== window) window.parent.postMessage(payload, "*"); } catch(_e) {}
+        };
+
+        send();
+        setTimeout(send, 250);
+        setTimeout(send, 700);
+        setTimeout(send, 1300);
+      }
+
+      function scrollDoneIntoViewSoon() {
+        const target = done || document.getElementById("status") || document.body;
+        const doScroll = () => {
+          try {
+            target.scrollIntoView({ behavior: "smooth", block: "end" });
+          } catch(_e) {
+            try { target.scrollIntoView(false); } catch(_e2) {}
+          }
+        };
+
+        doScroll();
+        setTimeout(doScroll, 250);
+        setTimeout(doScroll, 700);
+        setTimeout(doScroll, 1300);
+      }
+
       function attemptClose() {
         // Notify opener/parent (desktop) so it can update UI even if this tab can't be closed
         try { if (window.opener) window.opener.postMessage({ type: "EXACT_SELFIE_SENT", sid, oc }, "*"); } catch(_e) {}
         try { window.parent && window.parent !== window && window.parent.postMessage({ type: "EXACT_SELFIE_SENT", sid, oc }, "*"); } catch(_e) {}
+        notifyDesktopScroll();
 
         // Best-effort close sequence (works only if window was opened by script)
         const fns = [
@@ -612,8 +645,10 @@ const frame = document.getElementById("frame");
           try {
             await sendBlob(blob);
             statusEl.textContent = t("sent");
+            notifyDesktopScroll();
             // Show a friendly "sent" state for a moment then close
             done.style.display = "block";
+            scrollDoneIntoViewSoon();
             setTip(t("sent"));
             const tryClose = () => attemptClose();
             setTimeout(tryClose, 250);
